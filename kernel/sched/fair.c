@@ -8924,11 +8924,12 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		return 0;
 #endif
 
-	/* Don't detach task if it doesn't fit on the destination */
-	if (env->flags & LBF_IGNORE_BIG_TASKS &&
-		!task_fits_max(p, env->dst_cpu))
-		return 0;
 #endif
+
+/* Don't detach task if it doesn't fit on the destination */
+if (env->flags & LBF_IGNORE_BIG_TASKS &&
+	!task_fits_max(p, env->dst_cpu))
+	return 0;
 
 #ifdef CONFIG_SCHED_WALT
 	/* Don't detach task if it is under active migration */
