@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -504,6 +505,7 @@ void limContinuePostChannelScan(tpAniSirGlobal pMac)
     tANI_U8 channelNum;
     tANI_U8 i = 0;
     tSirRetStatus status = eSIR_SUCCESS;
+    tANI_U32 cfgVal;
 
     if( pMac->lim.abortScan || (NULL == pMac->lim.gpLimMlmScanReq ) ||
         (pMac->lim.gLimCurrentScanChannelId >
@@ -520,12 +522,22 @@ void limContinuePostChannelScan(tpAniSirGlobal pMac)
         return;
     }
 
+    wlan_cfgGetInt(pMac, WNI_CFG_ACTIVE_PASSIVE_CON, &cfgVal);
+
     channelNum = limGetCurrentScanChannel(pMac);
 
     if (channelNum == limGetCurrentOperatingChannel(pMac) &&
            limIsconnectedOnDFSChannel(channelNum))
     {
         limCovertChannelScanType(pMac, channelNum, true);
+        if (cfgVal) {
+            pMac->lim.dfschannelList.timeStamp[channelNum] =
+                                       vos_timer_get_system_time();
+            if (!tx_timer_running(&pMac->lim.limTimers.gLimActiveToPassiveChannelTimer))
+            {
+                tx_timer_activate(&pMac->lim.limTimers.gLimActiveToPassiveChannelTimer);
+            }
+         }
     }
 
     if ((pMac->lim.gpLimMlmScanReq->scanType == eSIR_ACTIVE_SCAN) &&
