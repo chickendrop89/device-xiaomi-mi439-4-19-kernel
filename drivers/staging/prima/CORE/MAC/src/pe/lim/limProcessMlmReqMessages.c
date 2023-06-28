@@ -562,8 +562,9 @@ void limContinuePostChannelScan(tpAniSirGlobal pMac)
                              VOS_MAC_ADDRESS_LEN);
 
             limLog(pMac, LOG1,
-                 FL(" Mac Addr "MAC_ADDRESS_STR " used in sending ProbeReq number %d, for SSID %s on channel: %d"),
-                      MAC_ADDR_ARRAY(gSelfMacAddr) ,i, pMac->lim.gpLimMlmScanReq->ssId[i].ssId, channelNum);
+                 FL(" Mac Addr "MAC_ADDRESS_STR " used in sending ProbeReq number %d, for SSID %s on channel: %d BSSID "MAC_ADDRESS_STR),
+                      MAC_ADDR_ARRAY(gSelfMacAddr) ,i, pMac->lim.gpLimMlmScanReq->ssId[i].ssId, channelNum,
+                      MAC_ADDR_ARRAY(pMac->lim.gpLimMlmScanReq->bssId));
             // include additional IE if there is
             status = limSendProbeReqMgmtFrame( pMac, &pMac->lim.gpLimMlmScanReq->ssId[i],
                pMac->lim.gpLimMlmScanReq->bssId, channelNum, gSelfMacAddr,
