@@ -10,6 +10,13 @@
 #
 # Copyright (C) 1995-2001 by Russell King
 
+# Optimize for cortex-a53 (sdm439) if supported
+KBUILD_CFLAGS	+= $(call cc-option, -march=armv8-a+crc+crypto)
+KBUILD_CFLAGS	+= $(call cc-option, -mtune=cortex-a53)
+KBUILD_CFLAGS	+= $(call cc-option, -mcpu=cortex-a53)
+KBUILD_AFLAGS	+= $(call cc-option, -mcpu=cortex-a53)
+KBUILD_AFLAGS	+= $(call cc-option, -mtune=cortex-a53)
+
 LDFLAGS_vmlinux	:=--no-undefined -X
 CPPFLAGS_vmlinux.lds = -DTEXT_OFFSET=$(TEXT_OFFSET)
 GZFLAGS		:=-9
