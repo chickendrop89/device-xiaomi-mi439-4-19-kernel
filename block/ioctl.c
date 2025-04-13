@@ -466,7 +466,7 @@ static int blkdev_roset(struct block_device *bdev, fmode_t mode,
 static int blkdev_roset_permanent(struct block_device *bdev, fmode_t mode,
 		unsigned cmd, unsigned long arg)
 {
-	int ret, n;
+	int ret;
 
 	ret = __blkdev_driver_ioctl(bdev, mode, cmd, arg);
 	if (!is_unrecognized_ioctl(ret))
