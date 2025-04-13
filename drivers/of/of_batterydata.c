@@ -451,7 +451,8 @@ struct device_node *of_batterydata_get_best_profile(
 			best_id_kohm, batt_id_kohm, id_range_pct);
 		return NULL;
 	}
-skip_check_id:
+
+__maybe_unused skip_check_id:
 
 	rc = of_property_read_string(best_node, "qcom,battery-type",
 							&battery_type);
