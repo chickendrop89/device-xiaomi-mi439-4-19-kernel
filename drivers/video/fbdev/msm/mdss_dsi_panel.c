@@ -2312,7 +2312,10 @@ static bool mdss_dsi_cmp_panel_reg_v2(struct mdss_dsi_ctrl_pdata *ctrl)
 	int i, j = 0;
 	int len = 0, *lenp;
 	int group = 0;
+
+#if IS_ENABLED(CONFIG_MACH_FAMILY_XIAOMI_ULYSSE)
 	struct mdss_panel_info *pinfo = &(ctrl->panel_data.panel_info);
+#endif
 
 	lenp = ctrl->status_valid_params ?: ctrl->status_cmds_rlen;
 
