@@ -7028,7 +7028,7 @@ unvote:
 	chg->dcin_aicl_done = aicl_done;
 }
 
-static void dcin_aicl_work(struct work_struct *work)
+__maybe_unused static void dcin_aicl_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						dcin_aicl_work);
@@ -7610,7 +7610,7 @@ out:
 	vote(chg->awake_votable, OTG_DELAY_VOTER, false, 0);
 }
 
-static void bms_update_work(struct work_struct *work)
+__maybe_unused static void bms_update_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						bms_update_work);
@@ -7621,7 +7621,7 @@ static void bms_update_work(struct work_struct *work)
 		power_supply_changed(chg->batt_psy);
 }
 
-static void pl_update_work(struct work_struct *work)
+__maybe_unused static void pl_update_work(struct work_struct *work)
 {
 	union power_supply_propval prop_val;
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -8008,7 +8008,7 @@ static void apsd_timer_cb(struct timer_list *tm)
 }
 
 #define SOFT_JEITA_HYSTERESIS_OFFSET	0x200
-static void jeita_update_work(struct work_struct *work)
+__maybe_unused static void jeita_update_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						jeita_update_work);
@@ -8265,7 +8265,7 @@ static void smblib_lpd_detach_work(struct work_struct *work)
 		chg->lpd_stage = LPD_STAGE_NONE;
 }
 
-static void smblib_cp_status_change_work(struct work_struct *work)
+__maybe_unused static void smblib_cp_status_change_work(struct work_struct *work)
 {
 	int rc;
 	union power_supply_propval pval;

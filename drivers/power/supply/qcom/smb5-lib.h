@@ -128,7 +128,7 @@ static int typec_high_current_ua = 3000000;
 #endif
 
 #if IS_ENABLED(CONFIG_MACH_XIAOMI_SDM439)
-static void override_smb5_lib_h_values_for_xiaomi_sdm439(void) {
+__maybe_unused static void override_smb5_lib_h_values_for_xiaomi_sdm439(void) {
 	if (!xiaomi_sdm439_mach_get())
 		return;
 
