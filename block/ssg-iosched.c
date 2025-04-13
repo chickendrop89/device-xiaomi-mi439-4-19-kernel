@@ -779,7 +779,7 @@ static void ssg_finish_request(struct request *rq)
 		blk_req_zone_write_unlock(rq);
 		if (!list_empty(&ssg->fifo_list[WRITE]))
 			hctx = blk_mq_map_queue(q, rq->mq_ctx->cpu);
-			blk_mq_sched_mark_restart_hctx(hctx);
+		blk_mq_sched_mark_restart_hctx(hctx);
 		spin_unlock_irqrestore(&ssg->zone_lock, flags);
 	}
 
