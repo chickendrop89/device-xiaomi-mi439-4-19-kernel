@@ -954,8 +954,9 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = POWER_SUPPLY_TYPE_USB_PD;
 #if IS_ENABLED(CONFIG_MACH_XIAOMI_SDM439)
-		if (xiaomi_sdm439_mach_get_family() == CONFIG_MACH_FAMILY_XIAOMI_OLIVE)
+		if (xiaomi_sdm439_mach_get_family() == XIAOMI_SDM439_MACH_FAMILY_OLIVE) {
 			val->intval = chg->real_charger_type;
+		}
 #endif
 		break;
 	case POWER_SUPPLY_PROP_REAL_TYPE:
