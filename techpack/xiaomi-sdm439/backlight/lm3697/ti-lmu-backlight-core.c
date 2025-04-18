@@ -220,18 +220,18 @@ int xiaomi_sdm439_ti_hbm_set(enum xiaomi_sdm439_backlight_hbm_mode hbm_mode)
 	switch (hbm_mode) {
 	case XIAOMI_SDM439_HBM_MODE_DEFAULT:
 		regmap_write(regmap, 0x18, 0x13);
-		pr_err("This is hbm mode 1\n");
+		pr_debug("This is hbm mode 1\n");
 		break;
 	case XIAOMI_SDM439_HBM_MODE_LEVEL1:
 		regmap_write(regmap, 0x18, 0x16);
-		pr_err("This is hbm mode 2\n");
+		pr_debug("This is hbm mode 2\n");
 		break;
 	case XIAOMI_SDM439_HBM_MODE_LEVEL2:
 		regmap_write(regmap, 0x18, 0x19);
-		pr_err("This is hbm mode 3\n");
+		pr_debug("This is hbm mode 3\n");
 		break;
 	default:
-		pr_err("This isn't hbm mode\n");
+		pr_debug("This isn't hbm mode\n");
 		break;
 	}
 
