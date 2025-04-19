@@ -111,6 +111,26 @@ DEFINE_SHOW_ATTRIBUTE(proc);
 
 #define FORBIDDEN_MMAP_FLAGS                (VM_WRITE)
 
+/* 
+ * Backport the idea of Xiaomi's binder_prio driver to 4.19.
+ * Boost binder priority of critical UI processes/elements
+ */
+#define BINDER_RT_PRIO_SURFACEFLINGER 85
+#define BINDER_RT_PRIO_HIGH 80
+
+#define IS_PRIORITY_PROCESS(name) \
+(strncmp(current->comm, name, strlen(name)) == 0)
+
+static const char * const rt_boost_processes[] = {
+	"surfaceflinger",
+	"cameraserver",
+	"ndroid.systemui",  // com.android.systemui
+	"droid.launcher3",	// com.android.launcher3
+	"s.nexuslauncher",	// com.google.android.apps.nexuslauncher
+	"android.webview",	// com.google.android.webview, com.android.webview
+	"putmethod.latin"	// com.google.android.inputmethod.latin, com.android.inputmethod.latin
+};
+
 enum {
 	BINDER_DEBUG_USER_ERROR             = 1U << 0,
 	BINDER_DEBUG_FAILED_TRANSACTION     = 1U << 1,
@@ -5211,6 +5231,33 @@ err_bad_arg:
 	return ret;
 }
 
+static inline bool binder_rt_should_boost_priority(void) 
+{
+	int i;
+    
+    if (likely(!current->mm))
+        return false;
+
+    for (i = 0; i < ARRAY_SIZE(rt_boost_processes); i++) {
+        if (likely(!IS_PRIORITY_PROCESS(rt_boost_processes[i])))
+            continue;
+        return true;
+    }
+    return false;
+}
+
+static inline void binder_rt_boost_process_priority(void)
+{
+    struct sched_param params = {
+        .sched_priority = unlikely(IS_PRIORITY_PROCESS("surfaceflinger")) ?
+            BINDER_RT_PRIO_SURFACEFLINGER : BINDER_RT_PRIO_HIGH
+    };
+
+    sched_setscheduler_nocheck(current,
+        SCHED_FIFO | SCHED_RESET_ON_FORK,
+        &params);
+}
+
 static int binder_open(struct inode *nodp, struct file *filp)
 {
 	struct binder_proc *proc;
@@ -5307,6 +5354,16 @@ static int binder_open(struct inode *nodp, struct file *filp)
 			}
 		}
 	}
+
+	/* 
+	 * Increase priority of hard-coded processes defined in rt_boost_processes[].
+	 * Mainly done for display compositor, and critical UI elements.
+	 */
+    if (unlikely(binder_rt_should_boost_priority())) {
+        pr_info_ratelimited("rt_boost_processes: boosting %s (pid=%d)\n", 
+                current->comm, current->pid);
+        binder_rt_boost_process_priority();
+    }
 
 	return 0;
 }
