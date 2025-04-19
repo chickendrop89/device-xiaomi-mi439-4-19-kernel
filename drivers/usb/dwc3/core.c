@@ -153,15 +153,74 @@ void dwc3_en_sleep_mode(struct dwc3 *dwc)
 
 void dwc3_dis_sleep_mode(struct dwc3 *dwc)
 {
-	u32 reg;
+    u32 reg;
+    unsigned long flags;
+    int ret;
 
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
-	reg &= ~DWC3_GUSB2PHYCFG_ENBLSLPM;
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+    if (dwc->desired_dr_role == DWC3_GCTL_PRTCAP_OTG && dwc->edev)
+        return;
 
-	reg = dwc3_readl(dwc->regs, DWC3_GUCTL1);
-	reg &= ~DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST;
-	dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
+    switch (dwc->current_dr_role) {
+    case DWC3_GCTL_PRTCAP_HOST:
+        dwc3_host_exit(dwc);
+        break;
+    case DWC3_GCTL_PRTCAP_DEVICE:
+        dwc3_gadget_exit(dwc);
+        dwc3_event_buffers_cleanup(dwc);
+        break;
+    case DWC3_GCTL_PRTCAP_OTG:
+        dwc3_otg_exit(dwc);
+        spin_lock_irqsave(&dwc->lock, flags);
+        dwc->desired_otg_role = DWC3_OTG_ROLE_IDLE;
+        spin_unlock_irqrestore(&dwc->lock, flags);
+        dwc3_otg_update(dwc, 1);
+        break;
+    default:
+        break;
+    }
+
+    spin_lock_irqsave(&dwc->lock, flags);
+    dwc3_set_prtcap(dwc, dwc->desired_dr_role);
+    spin_unlock_irqrestore(&dwc->lock, flags);
+
+    switch (dwc->desired_dr_role) {
+    case DWC3_GCTL_PRTCAP_HOST:
+        ret = dwc3_host_init(dwc);
+        if (ret) {
+            dev_err(dwc->dev, "failed to initialize host\n");
+        } else {
+            if (dwc->usb2_phy)
+                otg_set_vbus(dwc->usb2_phy->otg, true);
+            phy_set_mode(dwc->usb2_generic_phy, PHY_MODE_USB_HOST);
+            phy_set_mode(dwc->usb3_generic_phy, PHY_MODE_USB_HOST);
+            if (dwc->dis_split_quirk) {
+                reg = dwc3_readl(dwc->regs, DWC3_GUCTL3);
+                reg |= DWC3_GUCTL3_SPLITDISABLE;
+                dwc3_writel(dwc->regs, DWC3_GUCTL3, reg);
+            }
+        }
+        break;
+    case DWC3_GCTL_PRTCAP_DEVICE:
+        dwc3_event_buffers_setup(dwc);
+        if (dwc->usb2_phy)
+            otg_set_vbus(dwc->usb2_phy->otg, false);
+        phy_set_mode(dwc->usb2_generic_phy, PHY_MODE_USB_DEVICE);
+        phy_set_mode(dwc->usb3_generic_phy, PHY_MODE_USB_DEVICE);
+        ret = dwc3_gadget_init(dwc);
+        if (ret)
+            dev_err(dwc->dev, "failed to initialize peripheral\n");
+        break;
+    case DWC3_GCTL_PRTCAP_OTG:
+        dwc3_otg_init(dwc);
+        dwc3_otg_update(dwc, 0);
+        break;
+    default:
+        break;
+    }
+
+    reg = dwc3_readl(dwc->regs, DWC3_GUCTL1);
+    reg &= ~DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST;
+    dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
 }
 
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode)
@@ -403,6 +462,7 @@ static int dwc3_alloc_event_buffers(struct dwc3 *dwc, unsigned length)
 int dwc3_event_buffers_setup(struct dwc3 *dwc)
 {
 	struct dwc3_event_buffer	*evt;
+	u32				reg;
 
 	if (!dwc->ev_buf)
 		return 0;
@@ -415,7 +475,10 @@ int dwc3_event_buffers_setup(struct dwc3 *dwc)
 			upper_32_bits(evt->dma));
 	dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(0),
 			DWC3_GEVNTSIZ_SIZE(evt->length));
-	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), 0);
+
+	/* Clear any stale event */
+	reg = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT(0));
+	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), reg);	
 
 	/* setup GSI related event buffers */
 	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_SETUP, 0);
@@ -445,7 +508,10 @@ void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GEVNTADRHI(0), 0);
 	dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(0), DWC3_GEVNTSIZ_INTMASK
 			| DWC3_GEVNTSIZ_SIZE(0));
-	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), 0);
+
+	/* Clear any stale event */
+	reg = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT(0));
+	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), reg);
 
 	/* cleanup GSI related event buffers */
 	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEANUP, 0);
@@ -1203,7 +1269,60 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 	return 0;
 }
 
-static void __maybe_unused dwc3_core_exit_mode(struct dwc3 *dwc)
+__maybe_unused static int dwc3_core_init_mode(struct dwc3 *dwc)
+{
+	struct device *dev = dwc->dev;
+	int ret;
+
+	switch (dwc->dr_mode) {
+	case USB_DR_MODE_PERIPHERAL:
+		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+
+		if (dwc->usb2_phy)
+			otg_set_vbus(dwc->usb2_phy->otg, false);
+		phy_set_mode(dwc->usb2_generic_phy, PHY_MODE_USB_DEVICE);
+		phy_set_mode(dwc->usb3_generic_phy, PHY_MODE_USB_DEVICE);
+
+		ret = dwc3_gadget_init(dwc);
+		if (ret) {
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev, "failed to initialize gadget\n");
+			return ret;
+		}
+		break;
+	case USB_DR_MODE_HOST:
+		dwc3_set_prtcap(dwc, DWC3_GCTL_PRTCAP_HOST);
+
+		if (dwc->usb2_phy)
+			otg_set_vbus(dwc->usb2_phy->otg, true);
+		phy_set_mode(dwc->usb2_generic_phy, PHY_MODE_USB_HOST);
+		phy_set_mode(dwc->usb3_generic_phy, PHY_MODE_USB_HOST);
+
+		ret = dwc3_host_init(dwc);
+		if (ret) {
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev, "failed to initialize host\n");
+			return ret;
+		}
+		break;
+	case USB_DR_MODE_OTG:
+		INIT_WORK(&dwc->drd_work, __dwc3_set_mode);
+		ret = dwc3_drd_init(dwc);
+		if (ret) {
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev, "failed to initialize dual-role\n");
+			return ret;
+		}
+		break;
+	default:
+		dev_err(dev, "Unsupported mode of operation %d\n", dwc->dr_mode);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+__maybe_unused static void dwc3_core_exit_mode(struct dwc3 *dwc)
 {
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
@@ -1359,6 +1478,9 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 
 	dwc->dis_metastability_quirk = device_property_read_bool(dev,
 				"snps,dis_metastability_quirk");
+
+	dwc->dis_split_quirk = device_property_read_bool(dev,
+				"snps,dis-split-quirk");	
 
 	dwc->gen2_tx_de_emph = -1;
 	device_property_read_u32(dev, "snps,gen2-tx-de-emph",
@@ -1881,7 +2003,11 @@ static int dwc3_runtime_resume(struct device *dev)
 
 	switch (dwc->current_dr_role) {
 	case DWC3_GCTL_PRTCAP_DEVICE:
-		dwc3_gadget_process_pending_events(dwc);
+		if (dwc->pending_events) {
+			pm_runtime_put(dwc->dev);
+			dwc->pending_events = false;
+			enable_irq(dwc->irq_gadget);
+		}
 		break;
 	case DWC3_GCTL_PRTCAP_HOST:
 	default:
@@ -1967,10 +2093,32 @@ runtime_set_active:
 
 	return 0;
 }
+
+static void dwc3_complete(struct device *dev)
+{
+	struct dwc3	*dwc = dev_get_drvdata(dev);
+	u32		reg;
+
+	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
+			dwc->dis_split_quirk) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUCTL3);
+		reg |= DWC3_GUCTL3_SPLITDISABLE;
+		dwc3_writel(dwc->regs, DWC3_GUCTL3, reg);
+	}
+}
+#else
+#define dwc3_complete NULL
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct dev_pm_ops dwc3_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, dwc3_resume)
+	.complete = dwc3_complete,
+
+	/*
+	 * Runtime suspend halts the controller on disconnection. It relies on
+	 * platforms with custom connection notification to start the controller
+	 * again.
+	 */
 	SET_RUNTIME_PM_OPS(dwc3_runtime_suspend, dwc3_runtime_resume,
 			dwc3_runtime_idle)
 };
