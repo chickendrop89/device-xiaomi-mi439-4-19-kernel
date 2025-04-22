@@ -54,6 +54,7 @@
 #include <linux/shmem_fs.h>
 #include <linux/ctype.h>
 #include <linux/debugfs.h>
+#include <linux/binfmts.h>
 
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
@@ -4769,6 +4770,9 @@ static ssize_t store_enable(struct kobject *kobj, struct kobj_attribute *attr,
 {
 	int i;
 	unsigned int caps;
+	
+	if (task_is_init(current))
+		return -EPERM;
 
 	if (tolower(*buf) == 'n')
 		caps = 0;
