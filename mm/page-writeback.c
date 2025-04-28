@@ -38,6 +38,7 @@
 #include <linux/sched/signal.h>
 #include <linux/mm_inline.h>
 #include <trace/events/writeback.h>
+#include <linux/binfmts.h>
 
 #include "internal.h"
 
@@ -527,6 +528,9 @@ int dirty_background_ratio_handler(struct ctl_table *table, int write,
 {
 	int ret;
 
+	if (write & task_is_init(current))
+		return -EPERM;
+
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 	if (ret == 0 && write)
 		dirty_background_bytes = 0;
@@ -539,6 +543,9 @@ int dirty_background_bytes_handler(struct ctl_table *table, int write,
 {
 	int ret;
 	unsigned long old_bytes = dirty_background_bytes;
+
+	if (write & task_is_init(current))
+		return -EPERM;
 
 	ret = proc_doulongvec_minmax(table, write, buffer, lenp, ppos);
 	if (ret == 0 && write) {
@@ -559,6 +566,9 @@ int dirty_ratio_handler(struct ctl_table *table, int write,
 	int old_ratio = vm_dirty_ratio;
 	int ret;
 
+	if(write & task_is_init(current))
+		return -EPERM;
+
 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 	if (ret == 0 && write && vm_dirty_ratio != old_ratio) {
 		writeback_set_ratelimit();
@@ -573,6 +583,9 @@ int dirty_bytes_handler(struct ctl_table *table, int write,
 {
 	unsigned long old_bytes = vm_dirty_bytes;
 	int ret;
+
+	if (write & task_is_init(current))
+		return -EPERM;
 
 	ret = proc_doulongvec_minmax(table, write, buffer, lenp, ppos);
 	if (ret == 0 && write && vm_dirty_bytes != old_bytes) {
