@@ -2450,6 +2450,7 @@ static void mdss_dsi_parse_roi_alignment(struct device_node *np,
 	}
 }
 
+#ifndef CONFIG_MACH_XIAOMI_SDM439
 static void mdss_dsi_parse_dms_config(struct device_node *np,
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -2510,6 +2511,7 @@ exit:
 	pr_info("%s: dynamic switch feature enabled: %d\n", __func__,
 		pinfo->mipi.dms_mode);
 }
+#endif
 
 /* the length of all the valid values to be checked should not be great
  * than the length of returned data from read command.
@@ -2732,6 +2734,10 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 	pinfo->dcs_cmd_by_left = of_property_read_bool(np,
 		"qcom,dcs-cmd-by-left");
 
+#ifdef CONFIG_MACH_XIAOMI_SDM439
+	pinfo->ulps_feature_enabled = true;
+	pinfo->ulps_suspend_enabled = false;
+#else
 	pinfo->ulps_feature_enabled = of_property_read_bool(np,
 		"qcom,ulps-enabled");
 	pr_info("%s: ulps feature %s\n", __func__,
@@ -2743,7 +2749,7 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 		(pinfo->ulps_suspend_enabled ? "enabled" : "disabled"));
 
 	mdss_dsi_parse_dms_config(np, ctrl);
-
+#endif
 	pinfo->panel_ack_disabled = pinfo->sim_panel_mode ?
 		1 : of_property_read_bool(np, "qcom,panel-ack-disabled");
 
